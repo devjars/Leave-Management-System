@@ -13,6 +13,14 @@ const CreateToken = (data) =>{
     return Token
 }
 
+const ValidateToken = (req,res,next)=>{
+
+    const accessToken  = req.cookie(["Access-Token"], process.env.JWT_SECRET_KEY)
+    if(!accessToken){
+        return res.status(401).json({ success : false , message : "User not Authenticated   "})
+    }
+}
+
 
 
 module.exports= { CreateToken }

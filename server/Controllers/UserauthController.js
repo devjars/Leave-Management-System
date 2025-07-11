@@ -16,9 +16,9 @@ exports.AddnewUser = async (req, res) => {
             "Verefication Code",
              `<p>Your Virefication code is ${result.code}</p>`
         )
-      return res.status(201).json({ message: 'User created successfully. Please check your email for the verification code.' });
+      return res.status(201).json({ success: true, message: result.message });
     } else {
-      return res.status(400).json({ message: 'User creation failed' });
+      return res.status(400).json({ success : false, message: 'User creation failed' });
     }
   } catch (error) {
     console.error('Error adding new user:', error);
@@ -39,7 +39,7 @@ exports.Verify = async (req,res) =>{
 
           const token = CreateToken(result.payload)
               const oneMonth = 30 * 24 * 60 * 60 * 1000;
-            res.cookie('Access-token', token, {
+            res.cookie('Access-Token', token, {
               httpOnly: true,
               secure: process.env.NODE_ENV === 'production',
               sameSite: 'strict',
@@ -47,7 +47,7 @@ exports.Verify = async (req,res) =>{
             });
 
 
-          return  res.status(200).json({ success : true, message : "Account Successfully Created"})
+          return  res.status(200).json({ success : true, message :result.message})
         }else{
           return  res.status(400).json({success : false , message : result.message})
         }
@@ -87,6 +87,17 @@ exports.Login = async (req,res)=>{
             const result = await Userauth.Login(email,password)
 
             if(result.success){
+              const token = CreateToken(result.payload)
+                const oneMonth = 30 * 24 * 60 * 60 * 1000;
+
+              res.cookie("Access-Token",token,{
+                httpOnly : true,
+                secure : process.env.NODE_ENV === "production",
+                sameSite : true,
+                maxAge : oneMonth,
+
+
+              } )
                 return res.status(200).json({success : true , message : result.message})
             }else{
                 return res.status(400).json({success : false , message : result.message})

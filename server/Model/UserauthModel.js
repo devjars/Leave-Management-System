@@ -11,52 +11,57 @@ exports.createUser = async (email, password) => {
   try {
     const res = await db(query, [email, hashedPassword, code, expiry]);
     if (res.affectedRows > 0) {
-      return { success: true, code : code };
+      return { success: true,
+               message : 'User created successfully. Please check your email for the verification code.' , 
+               code : code };
     } else {
       return { success: false };
     }
-  } catch (error) {
-    throw error;
-  }
+  }catch (error) {
+  console.error("CreateUser error:", error);
+  return { success: false, message: "Internal server error" };
+}
 };
 
 exports.Verify = async (email, code) => {
-  try {
-    const query = `SELECT code, code_expiry, user_id, role , email FROM user WHERE email = ?`;
-    const res = await db(query, [email]);
+  
+  try{
+    const checkquery = `SELECT user_id ,email , code , code_expiry  is_verified , role FROM user WHERE email = ? `
+    const checkres = await db(checkquery,[email])
 
-    if (res.length === 0) {
-      return { success: false, message: "Email not found" };
+    if(checkres.length === 0){
+      return { success : false , message : "User not Found"}
     }
 
+    const user = checkres[0]
+    const now = new Date()
 
-    const now = new Date();
-
-    if (res[0].code != code) {
-      return { success: false, message: `Invalid verification code ${code} = ${res[0].code}` };
+    if(new Date(user.code_expiry) < now){
+      return { success : false , message : "The Verification code is Already Expired"}
+    }
+   
+    if(code !== user.code){
+      return {success : false , message : "Incorrect Verification Code , Please Try Again!"}
     }
 
-    if (new Date(res[0].code_expiry) < now) {
-      return { success: false, message: "Verification code has expired" };
-    }
-
-     const updateQuery = `UPDATE user SET is_verified = true, code = NULL, code_expiry = NULL WHERE email = ?`;
-    const result = await db(updateQuery, [email]);
-
-    if (result.affectedRows > 0) {
-      const credentials = {
-           user_id : res[0].user_id,
-           email : res[0].email,
-           role : res[0].role
+    const querytoUpdate = `UPDATE user SET code_expiry = NULL , code = NULL, is_verified = true WHERE email = ?`
+    const querytoUpdateres = await db(querytoUpdate,[email])
+      if(querytoUpdateres.affectedRows > 0){
+        const   {user_id , email:dbemail , role:dbrole} = user
+        const credential = {
+          id : user_id,
+          email : dbemail,
+          role : dbrole
         }
-      return { success: true, message: "Account verified successfully", payload : credentials};
-    } else {
-      return { success: false, message: "Failed to update verification status" };
-    }
+        return { success : true , message : "Sign up Successfully", payload :credential }
+      }else{
+        return { success : false , message : "Code Verification Failed! Please try Again !"}
+      }
+    
 
-  } catch (error) {
-    console.error("Verification error:", error);
-    return { success: false, message: "Something went wrong" };
+  }catch(error){
+    console.log("Error Verifying the code",error.message) 
+    return { success : false, message : "Internal server error"}
   }
 };
 
@@ -81,16 +86,33 @@ exports.ResendCode = async (email) => {
 
 exports.Login = async (email,password)=>{
 
-    const checkquery = `SELECT email,password FROM user WHERE email = ?`
+   try{
+     const checkquery = `SELECT email, password, is_verified, user_id , role FROM user WHERE email = ?`
     const checkresult = await db(checkquery,[email])
-    if(checkresult.length > 0){
-        const isMatch = await bcrypt.compare(password, checkresult[0].password) 
-        if(isMatch){
-            return { success : true , message : "Login Succesfully"}
-        }else{
-            return { success : false , message : "Invalid credentials!"}
-        }
-    }else{
-        return { success: false, message : "Account not Found   "}
+    
+
+    if(checkresult.length === 0){
+      return {success : false, message : "Account not Found"}
     }
+    const user = checkresult[0]
+    if(!user.is_verified){
+      return { success : false , message : "Account is not Verified yet , Please Verify it first"}
+    }
+
+    const isMatch = await bcrypt.compare(password , user.password)
+    if(!isMatch){
+      return {success : false , message : "Wrong Credentials"}
+    }
+     const   {user_id , email:dbemail , role:dbrole} = user
+        const credential = {
+          id : user_id,
+          email : dbemail,
+          role : dbrole
+        }
+    return  { success : true , message : "Login Successfully" , payload : credential}
+   }catch(error){
+    console.log("Login Error",error)
+    return { success : false , message : "Internal Server Error"}
+   }
+ 
 }
