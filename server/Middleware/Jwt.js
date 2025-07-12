@@ -15,12 +15,25 @@ const CreateToken = (data) =>{
 
 const ValidateToken = (req,res,next)=>{
 
-    const accessToken  = req.cookie(["Access-Token"], process.env.JWT_SECRET_KEY)
-    if(!accessToken){
+    const Token = req.cookies?.['Access-Token']
+
+    if(!Token){
         return res.status(401).json({ success : false , message : "User not Authenticated   "})
     }
+
+    jwt.verify(Token,process.env.JWT_SECRET_KEY,(err,payload)=>{
+        if(err){
+            return res.statos(403).json({ success : false,  message: "Token is invalid or expired" })
+        }
+
+       
+
+        req.credentials = payload
+        next()
+    })
+
 }
 
 
 
-module.exports= { CreateToken }
+module.exports= { CreateToken,ValidateToken }

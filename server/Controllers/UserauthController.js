@@ -1,5 +1,5 @@
 const Userauth = require('../Model/UserauthModel');
-const SendMail = require('../utils/Mailsender')
+
 const { CreateToken }  = require("../Middleware/Jwt")
 
 exports.AddnewUser = async (req, res) => {
@@ -11,32 +11,7 @@ exports.AddnewUser = async (req, res) => {
   try {
     const result = await Userauth.createUser(email, password);
     if (result.success) {  
-       await SendMail(
-             email,
-            "Verefication Code",
-             `<p>Your Virefication code is ${result.code}</p>`
-        )
-      return res.status(201).json({ success: true, message: result.message });
-    } else {
-      return res.status(400).json({ success : false, message: 'User creation failed' });
-    }
-  } catch (error) {
-    console.error('Error adding new user:', error);
-    return res.status(500).json({ message: 'Internal server error' });
-  }
-};
-
-exports.Verify = async (req,res) =>{
-    const { email,code } = req.body
-    if(!email || !code) {
-        return res.status(400).json({message : 'Email & code are required'})
-    }
-
-    try{
-        const result = await Userauth.Verify(email,code)
-
-        if(result.success){
-
+      
           const token = CreateToken(result.payload)
               const oneMonth = 30 * 24 * 60 * 60 * 1000;
             res.cookie('Access-Token', token, {
@@ -46,7 +21,28 @@ exports.Verify = async (req,res) =>{
               maxAge: oneMonth
             });
 
+      return res.status(201).json({ success: true, message: result.message });
+    } else {
+      return res.status(400).json({ success : false, message: result.message });
+    }
+  } catch (error) {
+    console.error('Error adding new user:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
+exports.Verify = async (req,res) =>{
+    const {code } = req.body
+    const email = req.credentials.email
+    console.log("email is`",email)
+    if(!email || !code) {
+        return res.status(400).json({message : 'Email & code are required'})
+    }
+
+    try{
+        const result = await Userauth.Verify(email,code)
+
+        if(result.success){
           return  res.status(200).json({ success : true, message :result.message})
         }else{
           return  res.status(400).json({success : false , message : result.message})
@@ -58,7 +54,7 @@ exports.Verify = async (req,res) =>{
 }
 
 exports.GetnewCode = async (req,res)=>{
-        const email = req.body
+        const email = req.query.email
 
         if(!email){
             return res.status(400).json({success : false , message : "Invalid Email"})
@@ -109,5 +105,24 @@ exports.Login = async (req,res)=>{
                 return res.status(500).json({success : false ,message: "Login failed. Please try again later."})
 
         }
+
+}
+
+exports.ChecknotVerified = async (req,res)=>{
+
+  const { id } = req.credentials
+  try{
+
+    const result = await Userauth.GetnotVerified(id)
+    if(result.success){
+      return res.status(200).json({success : true , message : result.message})
+    }else{
+      return res.status(200).json({success : false , message : result.message})
+    }
+    
+  }catch(err){
+    console.log("error", err.message)
+    return res.status(500).json({success : false , message : "Check status failed, Please try again!"})
+  }
 
 }
